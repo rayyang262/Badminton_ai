@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Badminton AI Coach</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <!-- marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">🏸</span>
+        <span class="logo-text">Badminton <strong>AI Coach</strong></span>
+      </div>
+      <p class="tagline">Upload your match or practice video and get expert AI coaching feedback</p>
+    </div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <!-- Upload card -->
+    <section class="card upload-card" id="uploadSection">
+      <h2>Upload Your Video</h2>
+      <p class="sub">Supported formats: MP4 · MOV · AVI · WebM · MKV &nbsp;|&nbsp; Max 150 MB</p>
+
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept="video/*" hidden />
+        <div class="drop-icon">📹</div>
+        <p class="drop-primary">Drag &amp; drop your video here</p>
+        <p class="drop-secondary">or</p>
+        <button class="btn btn-outline" id="browseBtn" type="button">Browse Files</button>
+      </div>
+
+      <!-- Preview -->
+      <div class="preview-wrap hidden" id="previewWrap">
+        <video id="videoPreview" controls playsinline></video>
+        <div class="file-info" id="fileInfo"></div>
+        <div class="preview-actions">
+          <button class="btn btn-primary" id="analyzeBtn" type="button">
+            <span class="btn-icon">🔍</span> Analyze My Technique
+          </button>
+          <button class="btn btn-ghost" id="changeBtn" type="button">Change Video</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Status / progress -->
+    <div class="status-bar hidden" id="statusBar">
+      <div class="spinner"></div>
+      <span id="statusText">Processing…</span>
+    </div>
+
+    <!-- Results card -->
+    <section class="card results-card hidden" id="resultsCard">
+      <div class="results-header">
+        <h2>🎯 Coaching Report</h2>
+        <button class="btn btn-ghost btn-sm" id="copyBtn" type="button">📋 Copy Report</button>
+      </div>
+      <div class="results-body" id="resultsBody"></div>
+      <div class="results-footer hidden" id="resultsFooter">
+        <button class="btn btn-outline" id="analyzeAnotherBtn" type="button">
+          Analyze Another Video
+        </button>
+      </div>
+    </section>
+
+    <!-- Error banner -->
+    <div class="error-banner hidden" id="errorBanner">
+      <span class="error-icon">⚠️</span>
+      <span id="errorText"></span>
+    </div>
+
+  </main>
+
+  <!-- ── How it works ── -->
+  <section class="how-it-works">
+    <div class="hiw-inner">
+      <h3>How It Works</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <strong>Upload</strong>
+            <p>Drop in any badminton video — match footage, practice rally, or drills.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <strong>AI Analysis</strong>
+            <p>Claude Opus extracts key frames and analyzes your footwork, swing, grip, and positioning.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <strong>Get Coached</strong>
+            <p>Receive a ranked list of training priorities with specific drills to level up fast.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Powered by <strong>Claude Opus 4.6</strong> · Built with Flask &amp; OpenCV</p>
+  </footer>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>

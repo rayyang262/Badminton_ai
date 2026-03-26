@@ -1,11 +1,17 @@
 import os
+import sys
 import cv2
 import base64
 import tempfile
 import json
+import uuid
+import subprocess
 import anthropic
-from flask import Flask, render_template, request, Response, stream_with_context
+from flask import Flask, render_template, request, Response, stream_with_context, send_file
 from dotenv import load_dotenv
+
+# Allow imports from the project root (visualizer.py, extract_pose.py, etc.)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 load_dotenv()
 
@@ -209,6 +215,110 @@ def analyze():
             'X-Accel-Buffering': 'no',
             'Connection': 'keep-alive',
         },
+    )
+
+
+# In-memory map of {vid_id: output_filepath} for pending downloads
+_pending_downloads = {}
+
+
+@app.route('/generate-video', methods=['POST'])
+def generate_video():
+    def run():
+        if 'video' not in request.files:
+            yield f"data: {json.dumps({'error': 'No video file provided.'})}\n\n"
+            return
+
+        file = request.files['video']
+        if not file or file.filename == '':
+            yield f"data: {json.dumps({'error': 'No file selected.'})}\n\n"
+            return
+
+        if not allowed_file(file.filename):
+            yield f"data: {json.dumps({'error': 'Unsupported file type.'})}\n\n"
+            return
+
+        suffix = os.path.splitext(file.filename)[1] or '.mp4'
+        tmp_input = None
+        tmp_output = None
+        try:
+            # Save uploaded video to a temp file
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+                file.save(f.name)
+                tmp_input = f.name
+
+            tmp_output = tempfile.mktemp(suffix='_visualized.mp4')
+
+            yield f"data: {json.dumps({'status': 'Starting pose detection...'})}\n\n"
+
+            # Run visualizer.py as a subprocess so we get stdout progress
+            proc = subprocess.Popen(
+                [sys.executable, 'visualizer.py', tmp_input, '--output', tmp_output],
+                cwd=PROJECT_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                bufsize=1,
+            )
+
+            for line in proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                # Forward [info]/[done] lines as status; parse Processing % line
+                if line.startswith('[info]') or line.startswith('[done]'):
+                    yield f"data: {json.dumps({'status': line[7:]})}\n\n"
+                elif 'Processing:' in line:
+                    # "  Processing: 45.0%  (45/300)"
+                    try:
+                        pct_str = line.split('Processing:')[1].split('%')[0].strip()
+                        pct = float(pct_str)
+                        yield f"data: {json.dumps({'progress': pct})}\n\n"
+                    except (IndexError, ValueError):
+                        pass
+
+            proc.wait()
+
+            if proc.returncode != 0 or not os.path.exists(tmp_output):
+                yield f"data: {json.dumps({'error': 'Video generation failed. Check that MediaPipe can process your video.'})}\n\n"
+                return
+
+            # Register the output file for download
+            vid_id = str(uuid.uuid4())
+            _pending_downloads[vid_id] = tmp_output
+            tmp_output = None  # ownership transferred — don't delete below
+
+            yield f"data: {json.dumps({'done': True, 'vid_id': vid_id})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'error': f'Unexpected error: {str(e)}'})}\n\n"
+        finally:
+            if tmp_input and os.path.exists(tmp_input):
+                os.unlink(tmp_input)
+            if tmp_output and os.path.exists(tmp_output):
+                os.unlink(tmp_output)
+
+    return Response(
+        stream_with_context(run()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive',
+        },
+    )
+
+
+@app.route('/download/<vid_id>')
+def download_video(vid_id):
+    path = _pending_downloads.pop(vid_id, None)
+    if not path or not os.path.exists(path):
+        return 'Not found or already downloaded', 404
+    return send_file(
+        path,
+        mimetype='video/mp4',
+        as_attachment=True,
+        download_name='annotated_technique.mp4',
     )
 
 

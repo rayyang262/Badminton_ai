@@ -314,6 +314,47 @@ footer {
 }
 footer strong { color: var(--text); }
 
+/* ── Video result card ── */
+.video-result-card {}
+
+.video-result-header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.video-result-header h2 { margin-bottom: 0; }
+
+.video-result-badge {
+  font-size: .75rem;
+  color: var(--muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .2rem .55rem;
+  font-family: monospace;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#videoResultPlayer {
+  width: 100%;
+  border-radius: 10px;
+  background: #000;
+  display: block;
+  margin-bottom: 1.25rem;
+  max-height: 480px;
+}
+
+.video-result-actions {
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
 /* ── Utilities ── */
 .hidden { display: none !important; }
 

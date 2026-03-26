@@ -1,21 +1,26 @@
 /* ── DOM refs ── */
-const dropZone        = document.getElementById('dropZone');
-const fileInput       = document.getElementById('fileInput');
-const browseBtn       = document.getElementById('browseBtn');
-const previewWrap     = document.getElementById('previewWrap');
-const videoPreview    = document.getElementById('videoPreview');
-const fileInfo        = document.getElementById('fileInfo');
-const analyzeBtn      = document.getElementById('analyzeBtn');
-const changeBtn       = document.getElementById('changeBtn');
-const statusBar       = document.getElementById('statusBar');
-const statusText      = document.getElementById('statusText');
-const resultsCard     = document.getElementById('resultsCard');
-const resultsBody     = document.getElementById('resultsBody');
-const resultsFooter   = document.getElementById('resultsFooter');
-const copyBtn         = document.getElementById('copyBtn');
+const dropZone          = document.getElementById('dropZone');
+const fileInput         = document.getElementById('fileInput');
+const browseBtn         = document.getElementById('browseBtn');
+const previewWrap       = document.getElementById('previewWrap');
+const videoPreview      = document.getElementById('videoPreview');
+const fileInfo          = document.getElementById('fileInfo');
+const analyzeBtn        = document.getElementById('analyzeBtn');
+const generateVideoBtn  = document.getElementById('generateVideoBtn');
+const changeBtn         = document.getElementById('changeBtn');
+const statusBar         = document.getElementById('statusBar');
+const statusText        = document.getElementById('statusText');
+const resultsCard       = document.getElementById('resultsCard');
+const resultsBody       = document.getElementById('resultsBody');
+const resultsFooter     = document.getElementById('resultsFooter');
+const copyBtn           = document.getElementById('copyBtn');
 const analyzeAnotherBtn = document.getElementById('analyzeAnotherBtn');
-const errorBanner     = document.getElementById('errorBanner');
-const errorText       = document.getElementById('errorText');
+const videoResultCard   = document.getElementById('videoResultCard');
+const videoResultPlayer = document.getElementById('videoResultPlayer');
+const videoResultBadge  = document.getElementById('videoResultBadge');
+const downloadVideoBtn  = document.getElementById('downloadVideoBtn');
+const errorBanner       = document.getElementById('errorBanner');
+const errorText         = document.getElementById('errorText');
 
 let selectedFile = null;
 let rawMarkdown  = '';
@@ -76,6 +81,112 @@ analyzeBtn.addEventListener('click', () => {
   if (!selectedFile) return;
   startAnalysis();
 });
+
+/* ── Generate annotated video ── */
+generateVideoBtn.addEventListener('click', () => {
+  if (!selectedFile) return;
+  startVideoGeneration();
+});
+
+function startVideoGeneration() {
+  setAllButtonsDisabled(true);
+  hideError();
+  videoResultCard.classList.add('hidden');
+
+  statusBar.classList.remove('hidden');
+  statusText.textContent = 'Uploading video for annotation...';
+
+  const formData = new FormData();
+  formData.append('video', selectedFile);
+
+  fetch('/generate-video', { method: 'POST', body: formData })
+    .then(res => {
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      function pump() {
+        return reader.read().then(({ done, value }) => {
+          if (done) {
+            statusBar.classList.add('hidden');
+            setAllButtonsDisabled(false);
+            return;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          lines.forEach(line => {
+            if (!line.startsWith('data: ')) return;
+            try {
+              const payload = JSON.parse(line.slice(6));
+              handleVideoPayload(payload);
+            } catch (_) {}
+          });
+
+          return pump();
+        });
+      }
+      return pump();
+    })
+    .catch(err => {
+      showError('Network error: ' + err.message);
+      statusBar.classList.add('hidden');
+      setAllButtonsDisabled(false);
+    });
+}
+
+function handleVideoPayload(p) {
+  if (p.error) {
+    showError(p.error);
+    statusBar.classList.add('hidden');
+    setAllButtonsDisabled(false);
+    return;
+  }
+
+  if (p.status) {
+    statusText.textContent = p.status;
+    return;
+  }
+
+  if (p.progress !== undefined) {
+    statusText.textContent = `Annotating video... ${p.progress.toFixed(0)}%`;
+    return;
+  }
+
+  if (p.done && p.vid_id) {
+    const downloadUrl = `/download/${p.vid_id}`;
+    downloadVideoBtn.href = downloadUrl;
+
+    // Also show inline player — fetch as blob so it plays before the
+    // download link expires (the /download route removes it from memory)
+    fetch(downloadUrl)
+      .then(r => r.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        videoResultPlayer.src = url;
+        downloadVideoBtn.href = url;
+        downloadVideoBtn.download = 'annotated_technique.mp4';
+        videoResultBadge.textContent = selectedFile ? selectedFile.name.replace(/\.[^.]+$/, '') + '_visualized' : '';
+        videoResultCard.classList.remove('hidden');
+        videoResultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      })
+      .catch(() => {
+        // Blob fetch failed (already consumed) — just open download directly
+        window.location.href = downloadUrl;
+      });
+
+    statusBar.classList.add('hidden');
+    setAllButtonsDisabled(false);
+  }
+}
+
+function setAllButtonsDisabled(disabled) {
+  analyzeBtn.disabled        = disabled;
+  generateVideoBtn.disabled  = disabled;
+  changeBtn.disabled         = disabled;
+}
 
 function startAnalysis() {
   analyzeBtn.disabled = true;
@@ -191,7 +302,9 @@ function resetAll() {
   rawMarkdown  = '';
   fileInput.value = '';
   videoPreview.src = '';
+  videoResultPlayer.src = '';
   previewWrap.classList.add('hidden');
+  videoResultCard.classList.add('hidden');
   dropZone.classList.remove('hidden');
   resetResults();
   hideError();
@@ -209,8 +322,7 @@ function resetResults() {
 }
 
 function resetButtons() {
-  analyzeBtn.disabled = false;
-  changeBtn.disabled  = false;
+  setAllButtonsDisabled(false);
 }
 
 function showError(msg) {

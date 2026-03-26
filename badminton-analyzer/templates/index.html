@@ -45,6 +45,9 @@
           <button class="btn btn-primary" id="analyzeBtn" type="button">
             <span class="btn-icon">🔍</span> Analyze My Technique
           </button>
+          <button class="btn btn-outline" id="generateVideoBtn" type="button">
+            <span class="btn-icon">🎬</span> Generate Annotated Video
+          </button>
           <button class="btn btn-ghost" id="changeBtn" type="button">Change Video</button>
         </div>
       </div>
@@ -67,6 +70,20 @@
         <button class="btn btn-outline" id="analyzeAnotherBtn" type="button">
           Analyze Another Video
         </button>
+      </div>
+    </section>
+
+    <!-- Video result card -->
+    <section class="card video-result-card hidden" id="videoResultCard">
+      <div class="video-result-header">
+        <h2>🎬 Annotated Video Ready</h2>
+        <span class="video-result-badge" id="videoResultBadge"></span>
+      </div>
+      <video id="videoResultPlayer" controls playsinline></video>
+      <div class="video-result-actions">
+        <a class="btn btn-primary" id="downloadVideoBtn" href="#" download="annotated_technique.mp4">
+          <span class="btn-icon">⬇️</span> Download Video
+        </a>
       </div>
     </section>
 
